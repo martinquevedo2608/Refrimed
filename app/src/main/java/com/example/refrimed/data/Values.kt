@@ -1,0 +1,11 @@
+package com.example.refrimed.data
+
+data class Values(
+    val temp1: Double = 0.0,
+    val temp2: Double = 0.0,
+    val temp3: Double = 0.0,
+    val temp4: Double = 0.0,
+    val current: Double = 0.0,
+    val relay1: Boolean = false,
+    val relay2: Boolean = false,
+    )
