@@ -6,7 +6,8 @@ data class RefrimedUiState(
     val btResponse: String = "",
     val btState: QueryState = QueryState.OFFLINE,
     val wifiState: QueryState = QueryState.OFFLINE,
-    val graph: MutableList<Values> = mutableListOf(Values())
+    val graph: MutableList<Values> = mutableListOf(Values()),
+    val screen: Screen = Screen.HOME
 )
 
 enum class QueryState {
@@ -15,4 +16,11 @@ enum class QueryState {
     ERROR,
     OFFLINE,
     IDLE
+}
+
+enum class Screen {
+    HOME,
+    BLUETOOTH,
+    CLOUD,
+    NOTES
 }
