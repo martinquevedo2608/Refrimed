@@ -1,5 +1,6 @@
 package com.example.refrimed.ui
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.BluetoothDevice
@@ -82,21 +83,29 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.runtime.key
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.DrawStyle
-import co.yml.charts.axis.AxisData
-import co.yml.charts.common.model.Point
-import co.yml.charts.ui.linechart.LineChart
-import co.yml.charts.ui.linechart.model.GridLines
-import co.yml.charts.ui.linechart.model.IntersectionPoint
-import co.yml.charts.ui.linechart.model.Line
-import co.yml.charts.ui.linechart.model.LineChartData
-import co.yml.charts.ui.linechart.model.LinePlotData
-import co.yml.charts.ui.linechart.model.LineStyle
-import co.yml.charts.ui.linechart.model.LineType
-import co.yml.charts.ui.linechart.model.SelectionHighlightPoint
-import co.yml.charts.ui.linechart.model.SelectionHighlightPopUp
-import co.yml.charts.ui.linechart.model.ShadowUnderLine
+import androidx.compose.ui.graphics.toArgb
+
 import com.example.refrimed.data.AlarmData
 import com.example.refrimed.data.Values
+import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberBottom
+import com.patrykandpatrick.vico.compose.cartesian.axis.rememberStart
+import com.patrykandpatrick.vico.compose.cartesian.layer.rememberLineCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
+import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
+import com.patrykandpatrick.vico.core.cartesian.CartesianMeasuringContext
+import com.patrykandpatrick.vico.core.cartesian.axis.Axis
+import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
+import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
+import com.patrykandpatrick.vico.core.cartesian.data.CartesianChartModelProducer
+import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
+import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
+import com.patrykandpatrick.vico.core.common.AdditionScope
+import com.patrykandpatrick.vico.core.common.Fill
+import com.patrykandpatrick.vico.core.common.LegendItem
+import com.patrykandpatrick.vico.core.common.component.Component
+import com.patrykandpatrick.vico.core.common.component.LineComponent
+import com.patrykandpatrick.vico.core.common.component.TextComponent
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -850,164 +859,77 @@ fun GraficoScreen(
         if (btUiState.graph.size > 1 && btUiState.recordQuery == QueryState.IDLE) {
             Log.d("GraficLog", "Entrando en composable...")
 
-            for (i in 100 downTo 1) {
-                Log.d("GraficLog", "t1: ${btUiState.graph[btUiState.graph.size - i].temp1}, t2: ${btUiState.graph[btUiState.graph.size - i].temp2}")
+//            for (i in 100 downTo 1) {
+//                Log.d("GraficLog", "t1: ${btUiState.graph[btUiState.graph.size - i].temp1}, t2: ${btUiState.graph[btUiState.graph.size - i].temp2}")
+//            }
+
+//            val divisor: Int = btUiState.graph.size / 500
+//            Log.d("GraficLog", "Divisor: $divisor")
+//            val graphList = btUiState.graph.filterIndexed { index, _ -> index % divisor == 0 }
+
+            val modelProducer = remember { CartesianChartModelProducer() }
+            val dataToGraph = remember(btUiState.graph) {
+                btUiState.graph.map { it.timestamp to it.temp1 }
             }
 
-            val divisor: Int = btUiState.graph.size / 500
-            Log.d("GraficLog", "Divisor: $divisor")
-            val graphList = btUiState.graph.filterIndexed { index, _ -> index % divisor == 0 }
-
-
-            // Para graficar la Temperatura 1 vs. Tiempo (usando timestamps en el eje X)
-            val pointsDataTemp1Time = transformValuesToPointData(
-                valuesList = graphList,
-                yValueSelector = { it.temp1 },
-                useIndexForX = false
-            )
-
-            // Para graficar la Temperatura 2 vs. Índice (orden de recepción)
-            val pointsDataTemp2Index = transformValuesToPointData(
-                valuesList = graphList,
-                yValueSelector = { it.temp2 },
-                useIndexForX = false
-            )
-
-            // Para graficar la Corriente vs. Tiempo (usando timestamps en el eje X)
-            val pointsDataCurrentTime = transformValuesToPointData(
-                valuesList = graphList,
-                yValueSelector = { it.current },
-                useIndexForX = false
-            )
-
-            val dateFormatter = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-
-            val xAxisDataTime = AxisData.Builder()
-                .axisStepSize(8.dp)
-                .backgroundColor(Color.Transparent)
-                .steps(pointsDataTemp1Time.size - 1)
-                .labelData { i ->
-                    btUiState.graph.getOrNull(i)?.let { values ->
-                        dateFormatter.format(values.timestamp) // Formatea el Date directamente
-                    } ?: ""
-                }
-                .axisLabelAngle(90f)
-                .labelAndAxisLinePadding(8.dp)
-                .axisLineColor(MaterialTheme.colorScheme.tertiary)
-                .axisLabelColor(MaterialTheme.colorScheme.tertiary)
-                .bottomPadding(200.dp)
-                .axisOffset(0.dp)
-                .build()
-
-            val xAxisDataIndex = AxisData.Builder()
-                .axisStepSize(100.dp)
-                .backgroundColor(Color.Transparent)
-                .steps(btUiState.graph.size - 1)
-                .labelData { i -> i.toString() }
-                .labelAndAxisLinePadding(15.dp)
-                .axisLineColor(MaterialTheme.colorScheme.tertiary)
-                .axisLabelColor(MaterialTheme.colorScheme.tertiary)
-                .build()
-
-            val yAxisDataTemp = AxisData.Builder()
-                .steps(40)
-                .backgroundColor(Color.Transparent)
-                .labelAndAxisLinePadding(20.dp)
-                .labelData { i ->
-                    if (i % 5 == 0) { // Mostrar etiqueta cada 5 grados
-                        i.toString()
-                    } else {
-                        "" // No mostrar etiqueta en otros pasos
+            LaunchedEffect(dataToGraph) {
+                modelProducer.runTransaction {
+                    if (dataToGraph.isNotEmpty()) {
+                        lineSeries {
+                            series(
+                                x = dataToGraph.map { it.first.time.toFloat() }, // Convert Date to milliseconds (Float)
+                                y = dataToGraph.map { it.second } // it.second ya es Float
+                            )
+                        }
                     }
                 }
-                .axisLineColor(MaterialTheme.colorScheme.tertiary)
-                .axisLabelColor(MaterialTheme.colorScheme.tertiary)
-                .build()
+            }
 
-            val lineChartData = LineChartData(
-                linePlotData = LinePlotData(
-                    lines = listOf(
-                        Line(
-                            dataPoints = pointsDataTemp1Time,
-                            LineStyle(
-                                color = MaterialTheme.colorScheme.tertiary,
-                                lineType = LineType.SmoothCurve(isDotted = false)
-                            ),
+            val dateFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
-                            IntersectionPoint(
-                                color = MaterialTheme.colorScheme.tertiary,
-                                radius = 4.dp
-                            ),
-                            SelectionHighlightPoint(color = MaterialTheme.colorScheme.primary),
-                            ShadowUnderLine(
-                                alpha = 0.5f,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.inversePrimary,
-                                        Color.Transparent
-                                    )
-                                )
-                            ),
-                            SelectionHighlightPopUp()
-                        ),
-                        Line(
-                            dataPoints = pointsDataTemp2Index,
-                            LineStyle(
-                                color = MaterialTheme.colorScheme.tertiary,
-                                lineType = LineType.SmoothCurve(isDotted = false)
-                            ),
-                            IntersectionPoint(
-                                color = MaterialTheme.colorScheme.tertiary,
-                                radius = 4.dp
-                            ),
-                            SelectionHighlightPoint(color = MaterialTheme.colorScheme.primary),
-                            ShadowUnderLine(
-                                alpha = 0.5f,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.inversePrimary,
-                                        Color.Transparent
-                                    )
-                                )
-                            ),
-                            SelectionHighlightPopUp()
-                        ),
-                        Line(
-                            dataPoints = pointsDataCurrentTime,
-                            LineStyle(
-                                color = MaterialTheme.colorScheme.tertiary,
-                                lineType = LineType.SmoothCurve(isDotted = false)
-                            ),
-                            IntersectionPoint(
-                                color = MaterialTheme.colorScheme.tertiary
-                            ),
-                            SelectionHighlightPoint(color = MaterialTheme.colorScheme.primary),
-                            ShadowUnderLine(
-                                alpha = 0.5f,
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.inversePrimary,
-                                        Color.Transparent
-                                    )
-                                )
-                            ),
-                            SelectionHighlightPopUp()
-                        )
+            val lineComponent = LineComponent(
+                thicknessDp = 2f,
+                fill = Fill(Color.Red.toArgb()) // Acá le das el color que querés
+            )
+
+            val lineColor = LineCartesianLayer.Line(
+                LineCartesianLayer.LineFill.single(Fill(Color.Red.toArgb()))
+            )
+
+            val legendItem = LegendItem(
+                icon = LineComponent(fill = Fill(Color.Red.toArgb())), // Usar Fill.Solid en lugar de Fill.Black
+                labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                label = "Temperatura Heladera"
+            )
+
+            CartesianChartHost(
+                rememberCartesianChart(
+                    rememberLineCartesianLayer(
+                        lineProvider = LineCartesianLayer.LineProvider.series(lineColor)
+                    ),
+                    legend = rememberHorizontalLegend(items = {
+                        add(legendItem)
+                    },),
+                    startAxis = VerticalAxis.rememberStart(),
+                    bottomAxis = HorizontalAxis.rememberBottom(
+                        valueFormatter = { context: CartesianMeasuringContext, value: Double, position: Axis.Position.Vertical? ->
+                            try {
+                                val date = Date(value.toLong()) // Convert Double to Long for Date
+                                dateFormatter.format(date)
+                            } catch (e: NumberFormatException) {
+                                Log.e("TemperatureChart", "Error formatting X-axis label: $value", e)
+                                ""
+                            }
+                        },
+                        labelRotationDegrees = 90f
                     ),
                 ),
-                backgroundColor = MaterialTheme.colorScheme.surface,
-                xAxisData = xAxisDataTime,
-                yAxisData = yAxisDataTemp,
-                gridLines = GridLines(color = MaterialTheme.colorScheme.outlineVariant)
+                modelProducer,
+                modifier = Modifier.fillMaxSize()
             )
 
-            Log.d("GraficLog", "Pre LineChart...")
-            LineChart(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.8f),
-                lineChartData = lineChartData
-            )
+
+
         } else if (btUiState.recordQuery == QueryState.LOADING) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally, // Centra horizontalmente los elementos
@@ -1201,8 +1123,8 @@ fun AlarmItem(
 fun RequestBluetoothPermissions() {
     val context = LocalContext.current
     val permissions = listOf(
-        android.Manifest.permission.BLUETOOTH_CONNECT,
-        android.Manifest.permission.BLUETOOTH_SCAN
+        Manifest.permission.BLUETOOTH_CONNECT,
+        Manifest.permission.BLUETOOTH_SCAN
     )
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -1227,7 +1149,7 @@ fun RequestBluetoothPermissions() {
 @SuppressLint("MissingPermission")
 fun getDeviceNameSafe(device: BluetoothDevice, context: Context): String {
     return if (ContextCompat.checkSelfPermission(
-            context, android.Manifest.permission.BLUETOOTH_CONNECT
+            context, Manifest.permission.BLUETOOTH_CONNECT
         ) == PackageManager.PERMISSION_GRANTED
     ) {
         device.name ?: "Sin nombre"
@@ -1236,24 +1158,24 @@ fun getDeviceNameSafe(device: BluetoothDevice, context: Context): String {
     }
 }
 
-fun transformValuesToPointData(
-    valuesList: List<Values>,
-    yValueSelector: (Values) -> Double,
-    useIndexForX: Boolean = true
-): List<Point> {
-    val firstTimestampMillis = if (!useIndexForX && valuesList.isNotEmpty()) {
-        valuesList.firstOrNull()?.timestamp?.time ?: 0L
-    } else {
-        0L
-    }
-
-    return valuesList.mapIndexed { index, values ->
-        val xValue = if (useIndexForX) {
-            index.toFloat()
-        } else {
-            val timestampMillis = values.timestamp.time
-            TimeUnit.MILLISECONDS.toMinutes(timestampMillis - firstTimestampMillis).toFloat() // Ejemplo: minutos desde el inicio
-        }
-        Point(xValue, yValueSelector(values).toFloat())
-    }
-}
+//fun transformValuesToPointData(
+//    valuesList: List<Values>,
+//    yValueSelector: (Values) -> Double,
+//    useIndexForX: Boolean = true
+//): List<Point> {
+//    val firstTimestampMillis = if (!useIndexForX && valuesList.isNotEmpty()) {
+//        valuesList.firstOrNull()?.timestamp?.time ?: 0L
+//    } else {
+//        0L
+//    }
+//
+//    return valuesList.mapIndexed { index, values ->
+//        val xValue = if (useIndexForX) {
+//            index.toFloat()
+//        } else {
+//            val timestampMillis = values.timestamp.time
+//            TimeUnit.MILLISECONDS.toMinutes(timestampMillis - firstTimestampMillis).toFloat() // Ejemplo: minutos desde el inicio
+//        }
+//        Point(xValue, yValueSelector(values).toFloat())
+//    }
+//}

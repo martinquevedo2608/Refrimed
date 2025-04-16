@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.ksp) // <- Agregar esta línea
+    id("org.jetbrains.kotlin.plugin.compose") version "2.1.20" // 👈 ESTE es el plugin correcto
 }
 
 android {
@@ -38,7 +38,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.10"
+        kotlinCompilerExtensionVersion = "1.5.13"
     }
 }
 
@@ -62,7 +62,6 @@ dependencies {
     //Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    ksp(libs.androidx.room.compiler)
 
     //ViewModel
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -74,5 +73,8 @@ dependencies {
     //Material
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
-    implementation("co.yml:ycharts:2.1.0")
+    //implementation("co.yml:ycharts:2.1.0")
+
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
 }
