@@ -1,6 +1,9 @@
 package com.example.refrimed.data
 
+import java.util.Date
+
 data class Values(
+    val timestamp: Date = Date(),
     val temp1: Double = 0.0,
     val temp2: Double = 0.0,
     val temp3: Double = 0.0,

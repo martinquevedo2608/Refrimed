@@ -1,6 +1,7 @@
 package com.example.refrimed
 
-import androidx.compose.foundation.layout.PaddingValues
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -17,12 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.refrimed.ui.AppViewModelProvider
 import com.example.refrimed.ui.RefrimedHome
 import com.example.refrimed.ui.RefrimedViewModel
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RefrimedApp() {
@@ -34,12 +35,8 @@ fun RefrimedApp() {
         Surface(
             modifier = Modifier.fillMaxSize()
         ) {
-            val refrimedViewModel: RefrimedViewModel = viewModel(factory = AppViewModelProvider.Factory)
-            val flightsUiState by refrimedViewModel.refrimedUiState.collectAsState()
 
             RefrimedHome(
-                refrimedUiState = flightsUiState,
-                viewModel = refrimedViewModel,
                 contentPadding = it
             )
         }

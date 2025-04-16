@@ -2,8 +2,8 @@ package com.example.refrimed.ui
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import com.example.refrimed.data.QueryState
 import com.example.refrimed.data.RefrimedUiState
-import com.example.refrimed.data.Screen
 import com.example.refrimed.data.UserPreferencesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,12 +14,15 @@ class RefrimedViewModel(
     private val userPreferencesRepository: UserPreferencesRepository
 ) : ViewModel() {
 
-    private val _refrimedUiState = MutableStateFlow(RefrimedUiState())
-    val refrimedUiState: StateFlow<RefrimedUiState> = _refrimedUiState
+    private val _uiState = MutableStateFlow(RefrimedUiState())
+    val uiState: StateFlow<RefrimedUiState> = _uiState
 
-    fun setScreen(screen: Screen) {
-        _refrimedUiState.update { currentState ->
-            currentState.copy(screen = screen)
-        }
+    fun setScreen(screen: com.example.refrimed.data.Screen) {
+        _uiState.update { it.copy(screen = screen) }
     }
+
+    fun setQueryState(queryState: QueryState) {
+        _uiState.update { it.copy(queryState = queryState) }
+    }
+
 }

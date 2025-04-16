@@ -5,7 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -15,16 +15,16 @@ class UserPreferencesRepository(
     private val dataStore: DataStore<Preferences>
 ){
     private companion object {
-        val REGISTERED_DEVICES = stringSetPreferencesKey("registered_devices")
+        val BLUETOOTH_DEVICE_CONFIG = stringPreferencesKey("bluetooth_device_config")
     }
 
-    suspend fun saveRegisteredDevices(registeredDevices: Set<String>) {
+    suspend fun saveBluetoothConfig(bluetoothDeviceConfig: String) {
         dataStore.edit { preferences ->
-            preferences[REGISTERED_DEVICES] = registeredDevices
+            preferences[BLUETOOTH_DEVICE_CONFIG] = bluetoothDeviceConfig
         }
     }
 
-    val registeredDevices: Flow<Set<String>> = dataStore.data
+    val bluetoothDeviceConfig: Flow<String> = dataStore.data
         .catch {
             if(it is IOException) {
                 Log.e("UserPreferencesRepo", "Error reading preferences.", it)
@@ -34,6 +34,6 @@ class UserPreferencesRepository(
             }
         }
         .map { preferences ->
-            preferences[REGISTERED_DEVICES] ?: emptySet() // Corregido aquí
+            preferences[BLUETOOTH_DEVICE_CONFIG] ?: ""
         }
 }
