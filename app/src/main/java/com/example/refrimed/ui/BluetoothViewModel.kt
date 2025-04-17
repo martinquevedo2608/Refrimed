@@ -79,14 +79,6 @@ class BluetoothViewModel() : ViewModel() {
         _btState.update { it.copy(recordReceived = false, recordQuery = QueryState.IDLE) }
     }
 
-    fun getConfigStates(): Boolean {
-        return _btState.value.configReceived
-    }
-
-    fun getThresholdsStates(): Boolean {
-        return _btState.value.thresholdsReceived
-    }
-
     fun setConfigQueryState(queryState: QueryState) {
         _btState.update { it.copy(configQuery = queryState) }
     }
@@ -96,7 +88,7 @@ class BluetoothViewModel() : ViewModel() {
     }
 
     fun getDeviceConfig() {
-        _btState.update { it.copy(configReceived = false) }
+        _btState.update { it.copy(configQuery = QueryState.CONFIG_ASKED) }
         sendMessage("get_config")
         CoroutineScope(Dispatchers.IO).launch {
             configDeferred = CompletableDeferred()
@@ -104,15 +96,21 @@ class BluetoothViewModel() : ViewModel() {
                 configDeferred.await()
             }
             if (success == true) {
-                setConfigQueryState(QueryState.SUCCESS)
+                if (_btState.value.configQuery == QueryState.CONFIG_ASKED) {
+                    setConfigQueryState(QueryState.CONFIG_RECEIVED)
+                }
             } else {
                 setConfigQueryState(QueryState.ERROR)
             }
         }
     }
 
+    fun getConfigState(): QueryState {
+        return _btState.value.configQuery
+    }
+
     fun getDeviceThresholds() {
-        _btState.update { it.copy(thresholdsReceived = false) }
+        _btState.update { it.copy(thresholdsQuery = QueryState.THRESHOLDS_ASKED) }
         sendMessage("get_thresholds")
         CoroutineScope(Dispatchers.IO).launch {
             thresholdsDeferred = CompletableDeferred()
@@ -120,24 +118,63 @@ class BluetoothViewModel() : ViewModel() {
                 thresholdsDeferred.await()
             }
             if (success == true) {
-                setThresholdsQueryState(QueryState.SUCCESS)
+                if (_btState.value.thresholdsQuery == QueryState.THRESHOLDS_ASKED) {
+                    setThresholdsQueryState(QueryState.THRESHOLDS_RECEIVED)
+                }
             } else {
                 setThresholdsQueryState(QueryState.ERROR)
             }
         }
     }
 
-    fun getRecord() {
+    fun getThresholdsState(): QueryState {
+        return _btState.value.thresholdsQuery
+    }
+
+    fun getRecord(cantidad: Int = 0) {
         _btState.update { it.copy(recordReceived = false, recordQuery = QueryState.LOADING) }
-        sendMessage("record_read")
+        when (cantidad) {
+            0 -> sendMessage("record_read")
+            2*60*3 -> sendMessage("record_3hread")
+            2*60*1 -> sendMessage("record_1hread")
+            else -> { }
+        }
+    }
+
+    fun getRecordErased() {
+        _btState.update { it.copy(recordQuery = QueryState.ERASING) }
+        sendMessage("record_erase")
+    }
+
+    fun getRecordErasedState(): QueryState {
+        return _btState.value.recordQuery
     }
 
     fun setConfigSent() {
-        _btState.update { it.copy(configSent = true) }
+        _btState.update { it.copy(configSent = true, configQuery = QueryState.CONFIG_SENT) }
     }
     fun setThresholdsSent() {
         _btState.update { it.copy(thresholdsSent = true) }
     }
+
+    fun setGraphState(queryState: QueryState) {
+        _btState.update { it.copy(recordQuery = queryState) }
+    }
+
+    fun wifiConnect() {
+        _btState.update { it.copy(wifiQuery = ConnectionState.CONNECTING) }
+        sendMessage("wifi_conectar")
+    }
+
+    fun getWifiState(): ConnectionState {
+        return _btState.value.wifiQuery
+    }
+
+    fun setWifiState(connectionState: ConnectionState) {
+        _btState.update { it.copy(wifiQuery = connectionState) }
+    }
+
+
 }
 
 fun List<String>.toCsv(): String = joinToString(",")

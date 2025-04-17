@@ -45,12 +45,16 @@ data class BtUiState(
     val thresholdsRelay1: String = "",
     val thresholdsRelay2: String = "",
     val recordReceived: Boolean = false,
-    val recordQuery: QueryState = QueryState.IDLE
+    val recordQuery: QueryState = QueryState.IDLE,
+    val recordSent: Boolean = false,
+    val wifiQuery: ConnectionState = ConnectionState.OFFLINE
 )
 
 enum class ConnectionState {
-    CONNECTED,
+    ONLINE,
     OFFLINE,
     CONNECTING,
-    ERROR
+    ERROR,
+    ERROR_PASS,
+    CONNECTED
 }

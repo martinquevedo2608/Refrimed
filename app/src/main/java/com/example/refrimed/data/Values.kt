@@ -11,4 +11,7 @@ data class Values(
     val current: Double = 0.0,
     val relay1: Boolean = false,
     val relay2: Boolean = false,
+    val alarm1: Boolean = false,
+    val alarm2: Boolean = false,
+    val alarm3: Boolean = false
     )

@@ -12,7 +12,19 @@ enum class QueryState {
     ERROR,
     OFFLINE,
     ONLINE,
-    IDLE
+    IDLE,
+    ERASED,
+    ERASING,
+    CONFIG_ASKED,
+    CONFIG_RECEIVED,
+    CONFIG_SENT,
+    CONFIG_OK,
+    THRESHOLDS_ASKED,
+    THRESHOLDS_RECEIVED,
+    THRESHOLDS_SENT,
+    THRESHOLDS_OK,
+    RECORD_ASKED,
+    RECORD_RECEIVED
 }
 
 enum class Screen {

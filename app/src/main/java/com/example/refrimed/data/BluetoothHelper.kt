@@ -11,17 +11,14 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.example.refrimed.ui.BluetoothViewModel
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
@@ -29,7 +26,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
 class BluetoothHelper(
     private val btViewModel: BluetoothViewModel // Recibe la instancia del ViewModel
@@ -123,7 +119,7 @@ class BluetoothHelper(
 
     private fun parseAndUpdate(message: String) {
         val parts = message.split(",")
-        if (parts.size == 9 && parts[0] == "VALUES") { //Valores actuales frecuentes
+        if (parts.size == 13 && parts[0] == "VALUES") { //Valores actuales frecuentes
             try {
                 val timestampString = parts[1].trim()
                 val temperature1 = parts[2].trim().toDoubleOrNull() ?: 0.0
@@ -132,7 +128,11 @@ class BluetoothHelper(
                 val temperature4 = parts[5].trim().toDoubleOrNull() ?: 0.0
                 val current = parts[6].trim().toDoubleOrNull() ?: 0.0
                 val relay1 = parts[7].trim() == "1"
-                val relay2 = parts.getOrNull(8)?.trim() == ("1" ?: false)
+                val relay2 = parts[8].trim() == "1"
+                val alarm1 = parts[9].trim() == "1"
+                val alarm2 = parts[10].trim() == "1"
+                val alarm3 = parts[11].trim() == "1"
+                val wifiState = if (parts[12].trim() == "1") ConnectionState.ONLINE else ConnectionState.OFFLINE
 
                 val dateTimeFormat =
                     SimpleDateFormat("dd/MM/yy - HH:mm:ss", Locale.getDefault())
@@ -148,9 +148,18 @@ class BluetoothHelper(
                         actualTemperature4 = temperature4,
                         actualCurrent = current,
                         actualRelay1 = relay1,
-                        actualRelay2 = relay2
+                        actualRelay2 = relay2,
+                        actualAlarm1 = alarm1,
+                        actualAlarm2 = alarm2,
+                        actualAlarm3 = alarm3,
+                        wifiQuery = wifiState
                     )
                 }
+
+                if (btViewModel.getWifiState() == ConnectionState.OFFLINE) {
+
+                }
+
             } catch (e: NumberFormatException) {
                 Log.e(
                     TAG,
@@ -180,6 +189,11 @@ class BluetoothHelper(
                         configReceived = true
                     )
                 }
+
+                if (btViewModel.getConfigState() == QueryState.CONFIG_ASKED) {
+                    btViewModel.updateBtState { it.copy(configQuery = QueryState.CONFIG_RECEIVED) }
+                }
+
                 try { btViewModel.configDeferred.complete(true) } catch (_: Exception) { }
             } catch (e: Exception) { Log.e(TAG, "Error al parsear el mensaje CONFIG: ${e.message}, mensaje: $message") }
         } else if (parts.size == 12 && parts[0] == "THRESHOLDS") { //recibo Thresholds del equipo
@@ -200,9 +214,14 @@ class BluetoothHelper(
                         thresholdsReceived = true
                     )
                 }
+
+                if (btViewModel.getThresholdsState() == QueryState.THRESHOLDS_ASKED) {
+                    btViewModel.updateBtState { it.copy(thresholdsQuery = QueryState.THRESHOLDS_RECEIVED) }
+                }
+
                 try { btViewModel.thresholdsDeferred.complete(true) } catch (_: Exception) { }
             } catch (e: Exception) { Log.e(TAG, "Error al parsear el mensaje THRESHOLDS: ${e.message}, mensaje: $message") }
-        } else if (parts.size == 9 && parts[0] in listOf("RSTART", "RE", "RFINISH")) { //recibo Registros del equipo
+        } else if (parts.size == 12 && parts[0] in listOf("RSTART", "RE", "RFINISH")) { //recibo Registros del equipo
             if (parts[0] == "RSTART") {
                 badCount = 0;
                 recordList = mutableListOf()
@@ -221,7 +240,10 @@ class BluetoothHelper(
                             temp4 = parts[5].trim().toDoubleOrNull() ?: 0.0,
                             current = parts[6].trim().toDoubleOrNull() ?: 0.0,
                             relay1 = parts[7].trim().toBooleanStrictOrNull() ?: false,
-                            relay2 = parts.getOrNull(8)?.trim()?.toBooleanStrictOrNull() ?: false
+                            relay2 = parts[8].trim().toBooleanStrictOrNull() ?: false,
+                            alarm1 = parts[8].trim().toBooleanStrictOrNull() ?: false,
+                            alarm2 = parts[8].trim().toBooleanStrictOrNull() ?: false,
+                            alarm3 = parts[8].trim().toBooleanStrictOrNull() ?: false
                         )
                     )
 
@@ -235,7 +257,7 @@ class BluetoothHelper(
                     btViewModel.updateBtState { currentState ->
                         currentState.copy(
                             graph = recordList,
-                            recordQuery = QueryState.IDLE
+                            recordQuery = QueryState.RECORD_RECEIVED
                         )
                     }
                 }
@@ -244,15 +266,39 @@ class BluetoothHelper(
                 recordList = mutableListOf()
             }
         } else if (parts.size == 1 && parts[0] == "config_ok") {
-            btViewModel.updateBtState { it.copy( configSaved = true ) }
-            btViewModel.getDeviceConfig()
+            if (btViewModel.getConfigState() == QueryState.CONFIG_SENT) {
+                btViewModel.updateBtState { it.copy(configQuery = QueryState.CONFIG_OK) }
+                btViewModel.getDeviceConfig()
+            }
         } else if (parts.size == 1 && parts[0] == "config_error") {
-            btViewModel.updateBtState { it.copy( configQuery = QueryState.ERROR ) }
+            if (btViewModel.getConfigState() == QueryState.CONFIG_ASKED) {
+                btViewModel.updateBtState { it.copy(configQuery = QueryState.ERROR) }
+            }
         } else if (parts.size == 1 && parts[0] == "thresholds_ok") {
-            btViewModel.updateBtState { it.copy( thresholdsSaved = true ) }
-            btViewModel.getDeviceThresholds()
+            if (btViewModel.getThresholdsState() == QueryState.THRESHOLDS_SENT) {
+                btViewModel.updateBtState { it.copy(thresholdsQuery = QueryState.THRESHOLDS_OK) }
+                btViewModel.getDeviceThresholds()
+            }
         } else if (parts.size == 1 && parts[0] == "thresholds_error") {
-            btViewModel.updateBtState { it.copy( thresholdsQuery = QueryState.ERROR ) }
+            if (btViewModel.getThresholdsState() == QueryState.THRESHOLDS_ASKED) {
+                btViewModel.updateBtState { it.copy(thresholdsQuery = QueryState.ERROR) }
+            }
+        } else if (parts.size == 1 && parts[0] == "record_erased") {
+            if (btViewModel.getRecordErasedState() == QueryState.ERASING) {
+                btViewModel.updateBtState { it.copy(recordQuery = QueryState.ERASED) }
+            }
+        } else if (parts.size == 1 && parts[0] == "wifi_error") {
+            if (btViewModel.getWifiState() == ConnectionState.CONNECTING) {
+                btViewModel.updateBtState { it.copy(wifiQuery = ConnectionState.ERROR) }
+            }
+        } else if (parts.size == 1 && parts[0] == "wifi_error_pass") {
+            if (btViewModel.getWifiState() == ConnectionState.CONNECTING) {
+                btViewModel.updateBtState { it.copy(wifiQuery = ConnectionState.ERROR_PASS) }
+            }
+        } else if (parts.size == 1 && parts[0] == "wifi_ok") {
+            if (btViewModel.getWifiState() in listOf(ConnectionState.CONNECTING, ConnectionState.OFFLINE)) {
+                btViewModel.updateBtState { it.copy(wifiQuery = ConnectionState.CONNECTED) }
+            }
         } else {
             Log.w(TAG, "Mensaje con formato incorrecto: $message")
         }
