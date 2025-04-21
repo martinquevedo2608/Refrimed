@@ -66,6 +66,8 @@ class BluetoothHelper(
                 monitorDisconnection(socket)
                 Log.i("BluetoothHelper", "Conectado a ${device.name}")
                 btViewModel.getDeviceConfig()
+                btViewModel.getDeviceThresholds()
+                btViewModel.guardarConfig(device.address)
             } catch (e: IOException) {
                 Log.e("BluetoothHelper", "Connection failed to ${device.name}: ${e.message}")
                 _connectedSocket.value = null
@@ -134,10 +136,13 @@ class BluetoothHelper(
                 val alarm3 = parts[11].trim() == "1"
                 val wifiState = if (parts[12].trim() == "1") ConnectionState.ONLINE else ConnectionState.OFFLINE
 
-                val dateTimeFormat =
-                    SimpleDateFormat("dd/MM/yy - HH:mm:ss", Locale.getDefault())
-                val parsedDateTime = dateTimeFormat.parse(timestampString)
-                val actualDateTime = parsedDateTime ?: Date(0)
+                var actualDateTime = Date(0)
+                if (timestampString != "0") {
+                    val dateTimeFormat =
+                        SimpleDateFormat("dd/MM/yy - HH:mm:ss", Locale.getDefault())
+                    val parsedDateTime = dateTimeFormat.parse(timestampString)
+                    actualDateTime = parsedDateTime ?: Date(0)
+                }
 
                 btViewModel.updateBtState { currentState ->
                     currentState.copy(
@@ -239,11 +244,11 @@ class BluetoothHelper(
                             temp3 = parts[4].trim().toDoubleOrNull() ?: 0.0,
                             temp4 = parts[5].trim().toDoubleOrNull() ?: 0.0,
                             current = parts[6].trim().toDoubleOrNull() ?: 0.0,
-                            relay1 = parts[7].trim().toBooleanStrictOrNull() ?: false,
-                            relay2 = parts[8].trim().toBooleanStrictOrNull() ?: false,
-                            alarm1 = parts[8].trim().toBooleanStrictOrNull() ?: false,
-                            alarm2 = parts[8].trim().toBooleanStrictOrNull() ?: false,
-                            alarm3 = parts[8].trim().toBooleanStrictOrNull() ?: false
+                            relay1 = parts[7].trim() == "1",
+                            relay2 = parts[8].trim() == "1",
+                            alarm1 = parts[9].trim() == "1",
+                            alarm2 = parts[10].trim() == "1",
+                            alarm3 = parts[11].trim() == "1"
                         )
                     )
 

@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,6 +96,7 @@ fun DeviceDropdown(
     devices: List<BluetoothDevice>,
     selectedDevice: BluetoothDevice?,
     onDeviceSelected: (BluetoothDevice) -> Unit,
+    deviceConfig: String,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -107,8 +109,18 @@ fun DeviceDropdown(
                 .fillMaxWidth()
                 .padding(8.dp)
         ) {
+            val savedDevice = devices.find { it.address == deviceConfig }
+
+            LaunchedEffect(savedDevice) {
+                if (selectedDevice == null && savedDevice != null) {
+                    onDeviceSelected(savedDevice)
+                }
+            }
+
             Text(
-                selectedDevice?.let { getDeviceNameSafe(it, context) } ?: "Seleccionar dispositivo"
+                selectedDevice?.let { getDeviceNameSafe(it, context) }
+                    ?: savedDevice?.let { getDeviceNameSafe(it, context) }
+                    ?: "Seleccionar dispositivo"
             )
         }
 

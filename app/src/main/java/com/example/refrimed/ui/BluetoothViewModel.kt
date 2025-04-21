@@ -5,7 +5,9 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.refrimed.data.BluetoothHelper
 import com.example.refrimed.data.BtUiState
 import com.example.refrimed.data.ConnectionState
@@ -19,8 +21,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.example.refrimed.data.UserPreferencesRepository
 
-class BluetoothViewModel() : ViewModel() {
+class BluetoothViewModel(
+    savedStateHandle: SavedStateHandle,
+    private val userPreferencesRepository: UserPreferencesRepository
+) : ViewModel() {
 
     private val _btState = MutableStateFlow(BtUiState())
     val btState: StateFlow<BtUiState> = _btState
@@ -28,6 +34,14 @@ class BluetoothViewModel() : ViewModel() {
     private val bluetoothHelper = BluetoothHelper(this) // Pasa la instancia al Helper
     val connectedSocket: StateFlow<BluetoothSocket?> = bluetoothHelper.connectedSocket
     val messagesFlow: SharedFlow<String> = bluetoothHelper.messagesFlow
+
+    fun guardarConfig(config: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveConfig(config)
+        }
+    }
+
+    val deviceConfig = userPreferencesRepository.deviceConfig
 
     var thresholdsDeferred = CompletableDeferred<Boolean>()
     var configDeferred = CompletableDeferred<Boolean>()
@@ -79,11 +93,11 @@ class BluetoothViewModel() : ViewModel() {
         _btState.update { it.copy(recordReceived = false, recordQuery = QueryState.IDLE) }
     }
 
-    fun setConfigQueryState(queryState: QueryState) {
+    private fun setConfigQueryState(queryState: QueryState) {
         _btState.update { it.copy(configQuery = queryState) }
     }
 
-    fun setThresholdsQueryState(queryState: QueryState) {
+    private fun setThresholdsQueryState(queryState: QueryState) {
         _btState.update { it.copy(thresholdsQuery = queryState) }
     }
 
@@ -154,7 +168,7 @@ class BluetoothViewModel() : ViewModel() {
         _btState.update { it.copy(configSent = true, configQuery = QueryState.CONFIG_SENT) }
     }
     fun setThresholdsSent() {
-        _btState.update { it.copy(thresholdsSent = true) }
+        _btState.update { it.copy(thresholdsSent = true, thresholdsQuery = QueryState.THRESHOLDS_SENT) }
     }
 
     fun setGraphState(queryState: QueryState) {

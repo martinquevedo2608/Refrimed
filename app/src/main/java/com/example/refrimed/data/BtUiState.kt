@@ -13,11 +13,12 @@ data class BtUiState(
     val currents: String = "Off",
     val relays: String = "Off",
     val alarms: String = "Off",
+    val legendNames: List<String> = listOf("Temp1", "Temp2", "Temp3", "Temp4", "Corriente(x10)", "Rel1", "Rel2(+2)", "Alm1(+4)", "Alm2(+6)", "Alm3(+8)"),
     val configReceived: Boolean = false,
     val configSent: Boolean = false,
     val configSaved: Boolean = false,
     val configQuery: QueryState = QueryState.IDLE,
-    val actualDateTime: Date = Date(0),
+    val actualDateTime: Date = Date(1),
     val actualTemperature1: Double = 0.0,
     val actualTemperature2: Double = 0.0,
     val actualTemperature3: Double = 0.0,
@@ -47,7 +48,8 @@ data class BtUiState(
     val recordReceived: Boolean = false,
     val recordQuery: QueryState = QueryState.IDLE,
     val recordSent: Boolean = false,
-    val wifiQuery: ConnectionState = ConnectionState.OFFLINE
+    val wifiQuery: ConnectionState = ConnectionState.OFFLINE,
+    val frecuenciaRegistro: String = "1 minuto"
 )
 
 enum class ConnectionState {

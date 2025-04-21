@@ -17,6 +17,8 @@ object AppViewModelProvider {
         }
         initializer {
             BluetoothViewModel(
+                createSavedStateHandle(),
+                refrimedApplication().container.userPreferencesRepository
             )
         }
     }

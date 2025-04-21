@@ -78,7 +78,6 @@ import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.rememberHorizontalLegend
 import com.patrykandpatrick.vico.core.cartesian.CartesianMeasuringContext
 import com.patrykandpatrick.vico.core.cartesian.Scroll
-import com.patrykandpatrick.vico.core.cartesian.Zoom
 import com.patrykandpatrick.vico.core.cartesian.axis.Axis
 import com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.core.cartesian.axis.VerticalAxis
@@ -99,7 +98,8 @@ fun BluetoothScreen(
     refrimedViewModel: RefrimedViewModel,
     btViewModel: BluetoothViewModel = viewModel(factory = AppViewModelProvider.Factory),
     btUiState: BtUiState,
-    connectedSocket: BluetoothSocket?
+    connectedSocket: BluetoothSocket?,
+    deviceConfig: String
 ) {
 
     val context = LocalContext.current
@@ -124,7 +124,7 @@ fun BluetoothScreen(
 
     Text(
         text = if (connectedSocket != null) {
-            "Conectado a ${getDeviceNameSafe(connectedSocket!!.remoteDevice, context)}"
+            "Conectado a ${getDeviceNameSafe(connectedSocket.remoteDevice, context)}"
         } else if (btUiState.connectionState == ConnectionState.CONNECTING) {
             "Conectando..."
         } else {
@@ -147,7 +147,8 @@ fun BluetoothScreen(
     DeviceDropdown(
         devices = refrimedDevices,
         selectedDevice = selectedDevice,
-        onDeviceSelected = { selectedDevice = it }
+        onDeviceSelected = { selectedDevice = it },
+        deviceConfig = deviceConfig
     )
 
     Row(
@@ -164,14 +165,15 @@ fun BluetoothScreen(
                     btViewModel.connectTo(context, it)
                 }
             },
-            enabled = selectedDevice != null,
+            enabled = (selectedDevice != null && connectedSocket == null),
             shape = MaterialTheme.shapes.small,
             modifier = Modifier.weight(1f)
         ) {
             Text(
                 "Conectar",
                 modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                style = TextStyle(fontWeight = FontWeight.Bold)
             )
         }
 
@@ -207,7 +209,14 @@ fun BluetoothScreen(
             buildAnnotatedString {
                 append("Hora: ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append("${SimpleDateFormat("HH:mm:ss").format(btUiState.actualDateTime)} hs")
+                    if (btUiState.actualDateTime == Date(1)) {
+                        append("---")
+                    } else if (btUiState.actualDateTime == Date(0)) {
+                        append("Sin conexión WiFi")
+                    } else {
+                        val horaActual = SimpleDateFormat("HH:mm:ss").format(btUiState.actualDateTime)
+                        append("$horaActual hs")
+                    }
                 }
             },
             style = MaterialTheme.typography.bodyLarge,
@@ -369,7 +378,6 @@ fun BluetoothScreen(
             Button(
                 onClick = {
                     refrimedViewModel.setScreen(Screen.BLUETOOTH_THRESHOLDS_CONFIG)
-                    btViewModel.getDeviceThresholds()
                 },
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
@@ -405,195 +413,245 @@ fun BluetoothScreen(
     if(btUiState.configQuery == QueryState.CONFIG_RECEIVED) {
         btViewModel.resetConfigStates()
     }
+    if (btUiState.thresholdsQuery == QueryState.THRESHOLDS_RECEIVED) {
+        btViewModel.resetThresholdsStates()
+    }
 }
 
 @Composable
 fun BluetoothConfigScreen(
     btViewModel: BluetoothViewModel,
     btUiState: BtUiState,
-    connectedSocket: BluetoothSocket?
 ) {
-    val config = remember { mutableStateListOf(btUiState.red, btUiState.pass, btUiState.temperatures, btUiState.currents, btUiState.relays, btUiState.alarms) }
-    val context = LocalContext.current
+    val config = remember { mutableStateListOf(btUiState.red, btUiState.pass, btUiState.temperatures, btUiState.currents, btUiState.relays, btUiState.alarms, btUiState.frecuenciaRegistro) }
 
-    Column(modifier = Modifier
-        .padding(16.dp)
-        .verticalScroll(rememberScrollState())
-    ) {
-        Text(
-            "Parámetros básicos:",
-            modifier = Modifier.padding(8.dp)
-        )
-
-        OutlinedTextField(
-            value = config[0],
-            onValueChange = { config[0] = it },
-            label = { Text("Red Wifi") },
+    key (btUiState.configQuery) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-        )
-
-        OutlinedTextField(
-            value = config[1],
-            onValueChange = { config[1] = it },
-            label = { Text("Contraseña") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-
-        DropdownSelector(
-            label = "Temperaturas",
-            options = listOf("Off", "1", "2", "3", "4"),
-            onOptionSelected = { config[2] = it },
-            startValue = config[2],
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-
-        DropdownSelector(
-            label = "Corriente",
-            options = listOf("Off", "On"),
-            onOptionSelected = { config[3] = it },
-            startValue = config[3],
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-
-        DropdownSelector(
-            label = "Relés",
-            options = listOf("Off", "1", "2"),
-            onOptionSelected = { config[4] = it },
-            startValue = config[4],
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-
-        DropdownSelector(
-            label = "Alarmas",
-            options = listOf("Off", "1", "2", "3"),
-            onOptionSelected = { config[5] = it },
-            startValue = config[5],
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Button(
-                onClick = {
-                    btViewModel.getDeviceConfig()
-                },
-                shape = MaterialTheme.shapes.small,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+            Text(
+                "Parámetros básicos:",
+                modifier = Modifier.padding(8.dp)
+            )
+
+            OutlinedTextField(
+                value = config[0],
+                onValueChange = { config[0] = it },
+                label = { Text("Red Wifi") },
                 modifier = Modifier
-                    .weight(1f)
-            ) {
-                Text("Leer config. actual")
-            }
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            )
 
-            Button(
-                onClick = {
-                    btViewModel.sendMessage("set_red:${config[0]}")
-                    btViewModel.sendMessage("set_pass:${config[1]}")
-                    btViewModel.sendMessage("set_temperaturas:${config[2]}")
-                    btViewModel.sendMessage("set_corrientes:${config[3]}")
-                    btViewModel.sendMessage("set_reles:${config[4]}")
-                    btViewModel.sendMessage("set_alarmas:${config[5]}")
-                    btViewModel.setConfigSent()
-                },
-                shape = MaterialTheme.shapes.small,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+            OutlinedTextField(
+                value = config[1],
+                onValueChange = { config[1] = it },
+                label = { Text("Contraseña") },
+                visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier
-                    .weight(1f)
-            ) {
-                Text("Guardar configuración",
-                    style = TextStyle(fontWeight = FontWeight.Bold)
-                )
-            }
-        }
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
 
-        HorizontalDivider(color = Color.Gray, thickness = 4.dp)
+            DropdownSelector(
+                label = "Temperaturas",
+                options = listOf("Off", "1", "2", "3", "4"),
+                onOptionSelected = { config[2] = it },
+                startValue = config[2],
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
 
-        Text(
-            "Conectividad WiFi:",
-            modifier = Modifier.padding(8.dp)
-        )
+            DropdownSelector(
+                label = "Corriente",
+                options = listOf("Off", "On"),
+                onOptionSelected = { config[3] = it },
+                startValue = config[3],
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = {
-                    btViewModel.wifiConnect()
-                },
-                shape = MaterialTheme.shapes.small,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+            DropdownSelector(
+                label = "Relés",
+                options = listOf("Off", "1", "2"),
+                onOptionSelected = { config[4] = it },
+                startValue = config[4],
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            DropdownSelector(
+                label = "Alarmas",
+                options = listOf("Off", "1", "2", "3"),
+                onOptionSelected = { config[5] = it },
+                startValue = config[5],
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            DropdownSelector(
+                label = "Frecuencia de registro",
+                options = listOf(
+                    "15 segundos",
+                    "30 segundos",
+                    "1 minuto",
+                    "3 minutos",
+                    "5 minutos",
+                    "10 minutos",
+                    "30 minutos",
+                    "1 hora"
+                ),
+                onOptionSelected = { config[6] = it },
+                startValue = config[6],
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (btUiState.wifiQuery == ConnectionState.CONNECTING) {
-                    CircularProgressIndicator()
-                } else {
+                Button(
+                    onClick = {
+                        btViewModel.getDeviceConfig()
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                    modifier = Modifier
+                        .weight(1f)
+                ) {
+                    Text("Leer config. actual")
+                }
+
+                Button(
+                    onClick = {
+                        btViewModel.sendMessage("set_red:${config[0]}")
+                        btViewModel.sendMessage("set_pass:${config[1]}")
+                        btViewModel.sendMessage("set_temperaturas:${config[2]}")
+                        btViewModel.sendMessage("set_corrientes:${config[3]}")
+                        btViewModel.sendMessage("set_reles:${config[4]}")
+                        btViewModel.sendMessage("set_alarmas:${config[5]}")
+                        btViewModel.sendMessage("set_frecuencia:${config[6]}")
+                        btViewModel.setConfigSent()
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                    modifier = Modifier
+                        .weight(1f)
+                ) {
                     Text(
-                        "Conectar",
+                        "Guardar configuración",
                         style = TextStyle(fontWeight = FontWeight.Bold)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
-            var wifiConnectionState by remember { mutableStateOf("") }
-            if (btUiState.wifiQuery == ConnectionState.OFFLINE) wifiConnectionState = "--> (Ahora Desconectado)"
-            if (btUiState.wifiQuery == ConnectionState.ONLINE) wifiConnectionState = "--> (Ahora Conectado!)"
-            Text(wifiConnectionState, style = TextStyle(fontStyle = FontStyle.Italic))
-        }
+            HorizontalDivider(color = Color.Gray, thickness = 4.dp)
 
-        HorizontalDivider(color = Color.Gray, thickness = 4.dp)
+            Text(
+                "Conectividad WiFi:",
+                modifier = Modifier.padding(8.dp)
+            )
 
-        Text(
-            "Registro y gráfico:",
-            modifier = Modifier.padding(8.dp)
-        )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        btViewModel.wifiConnect()
+                    },
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                    modifier = Modifier
+                        .padding(16.dp)
+                ) {
+                    if (btUiState.wifiQuery == ConnectionState.CONNECTING) {
+                        CircularProgressIndicator()
+                    } else {
+                        Text(
+                            "Conectar",
+                            style = TextStyle(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
 
-        BotonBorrado(btViewModel)
+                Spacer(modifier = Modifier.width(16.dp))
+                var wifiConnectionState by remember { mutableStateOf("") }
+                if (btUiState.wifiQuery == ConnectionState.OFFLINE) wifiConnectionState =
+                    "--> (Ahora Desconectado)"
+                if (btUiState.wifiQuery == ConnectionState.ONLINE) wifiConnectionState =
+                    "--> (Ahora Conectado!)"
+                Text(wifiConnectionState, style = TextStyle(fontStyle = FontStyle.Italic))
+            }
 
-        if(btUiState.configQuery == QueryState.ERROR) {
-            Toast.makeText(LocalContext.current, "ERROR en el envío de configuración. Intente nuevamente.", Toast.LENGTH_LONG).show()
-            btViewModel.resetConfigStates()
-        }
-        if(btUiState.configQuery == QueryState.CONFIG_RECEIVED) {
-            if(btUiState.configSent) {
-                Toast.makeText(LocalContext.current, "Configuración GUARDADA exitosamente.", Toast.LENGTH_LONG).show()
-                btViewModel.resetConfigStates()
-            } else {
-                Toast.makeText(LocalContext.current, "Configuración LEIDA exitosamente del dispositivo.", Toast.LENGTH_LONG).show()
+            HorizontalDivider(color = Color.Gray, thickness = 4.dp)
+
+            Text(
+                "Registro y gráfico:",
+                modifier = Modifier.padding(8.dp)
+            )
+
+            BotonBorrado(btViewModel)
+
+            if (btUiState.configQuery == QueryState.ERROR) {
+                Toast.makeText(
+                    LocalContext.current,
+                    "ERROR en el envío de configuración. Intente nuevamente.",
+                    Toast.LENGTH_LONG
+                ).show()
                 btViewModel.resetConfigStates()
             }
-        }
-        if(btUiState.recordQuery == QueryState.ERASED) {
-            Toast.makeText(LocalContext.current, "Registro interno correctamente BORRADO.", Toast.LENGTH_LONG).show()
-            btViewModel.resetRecordStates()
-        }
+            if (btUiState.configQuery == QueryState.CONFIG_RECEIVED) {
+                if (btUiState.configSent) {
+                    Toast.makeText(
+                        LocalContext.current,
+                        "Configuración GUARDADA exitosamente.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    btViewModel.resetConfigStates()
+                } else {
+                    Toast.makeText(
+                        LocalContext.current,
+                        "Configuración LEIDA exitosamente del dispositivo.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    btViewModel.resetConfigStates()
+                }
+            }
+            if (btUiState.recordQuery == QueryState.ERASED) {
+                Toast.makeText(
+                    LocalContext.current,
+                    "Registro interno correctamente BORRADO.",
+                    Toast.LENGTH_LONG
+                ).show()
+                btViewModel.resetRecordStates()
+            }
 
-        if(btUiState.wifiQuery == ConnectionState.ERROR) {
-            Toast.makeText(LocalContext.current, "ERROR al realizar la conexión WiFi", Toast.LENGTH_LONG).show()
-            btViewModel.setWifiState(ConnectionState.OFFLINE)
-        }
+            if (btUiState.wifiQuery == ConnectionState.ERROR) {
+                Toast.makeText(
+                    LocalContext.current,
+                    "ERROR al realizar la conexión WiFi",
+                    Toast.LENGTH_LONG
+                ).show()
+                btViewModel.setWifiState(ConnectionState.OFFLINE)
+            }
 
-        if(btUiState.wifiQuery == ConnectionState.ERROR_PASS) {
-            Toast.makeText(LocalContext.current, "ERROR al realizar la conexión WiFi. Verifique Usuario y Contraseña.", Toast.LENGTH_LONG).show()
-            btViewModel.setWifiState(ConnectionState.OFFLINE)
-        }
+            if (btUiState.wifiQuery == ConnectionState.ERROR_PASS) {
+                Toast.makeText(
+                    LocalContext.current,
+                    "ERROR al realizar la conexión WiFi. Verifique Usuario y Contraseña.",
+                    Toast.LENGTH_LONG
+                ).show()
+                btViewModel.setWifiState(ConnectionState.OFFLINE)
+            }
 
-        if(btUiState.wifiQuery == ConnectionState.CONNECTED) {
-            Toast.makeText(LocalContext.current, "WiFi conexión exitosa.", Toast.LENGTH_LONG).show()
-            btViewModel.setWifiState(ConnectionState.ONLINE)
+            if (btUiState.wifiQuery == ConnectionState.CONNECTED) {
+                Toast.makeText(LocalContext.current, "WiFi conexión exitosa.", Toast.LENGTH_LONG)
+                    .show()
+                btViewModel.setWifiState(ConnectionState.ONLINE)
+            }
         }
     }
 }
@@ -601,11 +659,8 @@ fun BluetoothConfigScreen(
 @Composable
 fun BluetoothThresholdsScreen(
     btViewModel: BluetoothViewModel,
-    btUiState: BtUiState,
-    connectedSocket: BluetoothSocket?
+    btUiState: BtUiState
 ) {
-    val context = LocalContext.current
-
     val magnitud = when (btUiState.temperatures) {
         "Off" -> listOf("Off")
         "1" -> listOf("Temperatura 1", "Off")
@@ -616,11 +671,6 @@ fun BluetoothThresholdsScreen(
         if (btUiState.currents == "On") listOf("Corriente") + baseList else baseList
     }
 
-    val alarmThresholdsState = listOf(
-        btUiState.thresholdsAlarm1_mag, btUiState.thresholdsAlarm1_op, btUiState.thresholdsAlarm1_num,
-        btUiState.thresholdsAlarm2_mag, btUiState.thresholdsAlarm2_op, btUiState.thresholdsAlarm2_num,
-        btUiState.thresholdsAlarm3_mag, btUiState.thresholdsAlarm3_op, btUiState.thresholdsAlarm3_num
-    )
     val alarmThresholds = remember { mutableStateListOf(AlarmData(), AlarmData(), AlarmData()) }
     val relayThresholdsState = listOf(btUiState.thresholdsRelay1, btUiState.thresholdsRelay2)
     val relayThresholds = remember { mutableStateListOf("", "") }
@@ -728,9 +778,9 @@ fun BluetoothThresholdsScreen(
 
             Button(
                 onClick = {
-                    btViewModel.sendMessage("set_alarm1:${alarmThresholds[0].mag}, ${alarmThresholds[0].op}, ${alarmThresholds[0].num}")
-                    btViewModel.sendMessage("set_alarm2:${alarmThresholds[1].mag}, ${alarmThresholds[1].op}, ${alarmThresholds[1].num}")
-                    btViewModel.sendMessage("set_alarm3:${alarmThresholds[2].mag}, ${alarmThresholds[2].op}, ${alarmThresholds[2].num}")
+                    btViewModel.sendMessage("set_alarm1:${alarmThresholds[0].mag},${alarmThresholds[0].op},${alarmThresholds[0].num}")
+                    btViewModel.sendMessage("set_alarm2:${alarmThresholds[1].mag},${alarmThresholds[1].op},${alarmThresholds[1].num}")
+                    btViewModel.sendMessage("set_alarm3:${alarmThresholds[2].mag},${alarmThresholds[2].op},${alarmThresholds[2].num}")
                     btViewModel.sendMessage("set_rele1:${relayThresholds[0]}")
                     btViewModel.sendMessage("set_rele2:${relayThresholds[1]}")
                     btViewModel.setThresholdsSent()
@@ -800,16 +850,57 @@ fun GraficoScreen(
 
             val modelProducer = remember { CartesianChartModelProducer() }
             val temp1Graph = remember(btUiState.graph) {
-                btUiState.graph.map { it.timestamp to it.temp1 }
+                if (btUiState.temperatures in listOf("1", "2", "3", "4")) {
+                    btUiState.graph.map { it.timestamp to it.temp1 }
+                } else emptyList()
             }
             val temp2Graph = remember(btUiState.graph) {
-                btUiState.graph.map { it.timestamp to it.temp2 }
+                if (btUiState.temperatures in listOf("2", "3", "4")) {
+                    btUiState.graph.map { it.timestamp to it.temp2 }
+                } else emptyList()
+            }
+            val temp3Graph = remember(btUiState.graph) {
+                if (btUiState.temperatures in listOf("3", "4")) {
+                    btUiState.graph.map { it.timestamp to it.temp3 }
+                } else emptyList()
+            }
+            val temp4Graph = remember(btUiState.graph) {
+                if (btUiState.temperatures == "4") {
+                    btUiState.graph.map { it.timestamp to it.temp4 }
+                } else emptyList()
             }
             val currentGraph = remember(btUiState.graph) {
-                btUiState.graph.map { it.timestamp to it.current * 10 }
+                if (btUiState.currents == "On") {
+                    btUiState.graph.map { it.timestamp to it.current * 10 }
+                } else emptyList()
+            }
+            val relay1Graph = remember(btUiState.graph) {
+                if (btUiState.relays in listOf("1", "2")) {
+                    btUiState.graph.map { it.timestamp to if(it.relay1) 1 else 0  }
+                } else emptyList()
+            }
+            val relay2Graph = remember(btUiState.graph) {
+                if (btUiState.relays == "2") {
+                    btUiState.graph.map { it.timestamp to if(it.relay2) 3 else 2  }
+                } else emptyList()
+            }
+            val alarm1Graph = remember(btUiState.graph) {
+                if (btUiState.alarms in listOf("1", "2", "3")) {
+                    btUiState.graph.map { it.timestamp to if(it.alarm1) 5 else 4  }
+                } else emptyList()
+            }
+            val alarm2Graph = remember(btUiState.graph) {
+                if (btUiState.alarms in listOf("2", "3")) {
+                    btUiState.graph.map { it.timestamp to if(it.alarm2) 7 else 6  }
+                } else emptyList()
+            }
+            val alarm3Graph = remember(btUiState.graph) {
+                if (btUiState.alarms == "3") {
+                    btUiState.graph.map { it.timestamp to if(it.alarm3) 9 else 8  }
+                } else emptyList()
             }
 
-            val zoomState = rememberVicoZoomState(initialZoom = Zoom.Content)
+            val zoomState = rememberVicoZoomState()//initialZoom = Zoom.Content)
             val scrollState = rememberVicoScrollState(initialScroll = Scroll.Absolute.End)
 
             LaunchedEffect(temp1Graph, temp2Graph, currentGraph) {
@@ -827,10 +918,52 @@ fun GraficoScreen(
                                 y = temp2Graph.map { it.second }
                             )
                         }
+                        if (temp3Graph.isNotEmpty()) {
+                            series(
+                                x = temp3Graph.map { it.first.time.toFloat() },
+                                y = temp3Graph.map { it.second }
+                            )
+                        }
+                        if (temp4Graph.isNotEmpty()) {
+                            series(
+                                x = temp4Graph.map { it.first.time.toFloat() },
+                                y = temp4Graph.map { it.second }
+                            )
+                        }
                         if (currentGraph.isNotEmpty()) {
                             series(
                                 x = currentGraph.map { it.first.time.toFloat() },
                                 y = currentGraph.map { it.second }
+                            )
+                        }
+                        if (relay1Graph.isNotEmpty()) {
+                            series(
+                                x = relay1Graph.map { it.first.time.toFloat() },
+                                y = relay1Graph.map { it.second }
+                            )
+                        }
+                        if (relay2Graph.isNotEmpty()) {
+                            series(
+                                x = relay2Graph.map { it.first.time.toFloat() },
+                                y = relay2Graph.map { it.second }
+                            )
+                        }
+                        if (alarm1Graph.isNotEmpty()) {
+                            series(
+                                x = alarm1Graph.map { it.first.time.toFloat() },
+                                y = alarm1Graph.map { it.second }
+                            )
+                        }
+                        if (alarm2Graph.isNotEmpty()) {
+                            series(
+                                x = alarm2Graph.map { it.first.time.toFloat() },
+                                y = alarm2Graph.map { it.second }
+                            )
+                        }
+                        if (alarm3Graph.isNotEmpty()) {
+                            series(
+                                x = alarm3Graph.map { it.first.time.toFloat() },
+                                y = alarm3Graph.map { it.second }
                             )
                         }
                     }
@@ -839,35 +972,89 @@ fun GraficoScreen(
 
             val dateFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
-            val lineComponents = listOf(
-                LineComponent(thicknessDp = 2f, fill = Fill(Color.Magenta.toArgb())),
-                LineComponent(thicknessDp = 2f, fill = Fill(Color.Blue.toArgb())),
-                LineComponent(thicknessDp = 2f, fill = Fill(Color.Red.toArgb()))
-            )
+            val lineColors = mutableListOf<LineCartesianLayer.Line>()
+            val legendItems = mutableListOf<LegendItem>()
 
-            val lineColors = listOf(
-                LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color.Magenta.toArgb()))),
-                LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color.Blue.toArgb()))),
-                LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color.Red.toArgb())))
-            )
-
-            val legendItems = listOf(
-                LegendItem(
-                    icon = LineComponent(fill = Fill(Color.Magenta.toArgb())),
+            if (temp1Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFF6495ED).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFF6495ED).toArgb())),
                     labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
-                    label = "Temperatura Heladera"
-                ),
-                LegendItem(
-                    icon = LineComponent(fill = Fill(Color.Blue.toArgb())),
+                    label = btUiState.legendNames[0]
+                ))
+            }
+            if (temp2Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFF0000FF).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFF0000FF).toArgb())),
                     labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
-                    label = "Temperatura Freezer"
-                ),
-                LegendItem(
-                    icon = LineComponent(fill = Fill(Color.Red.toArgb())),
+                    label = btUiState.legendNames[1]
+                ))
+            }
+            if (temp3Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFF00008B).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFF00008B).toArgb())),
                     labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
-                    label = "Corriente"
-                )
-            )
+                    label = btUiState.legendNames[2]
+                ))
+            }
+            if (temp4Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFFFFC0CB).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFFFFC0CB).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[3]
+                ))
+            }
+            if (currentGraph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFFFF0000).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFFFF0000).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[4]
+                ))
+            }
+            if (relay1Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFF808080).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFF808080).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[5]
+                ))
+            }
+            if (relay2Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFF808080).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFF808080).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[6]
+                ))
+            }
+            if (alarm1Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFFFFFF00).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFFFFFF00).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[7]
+                ))
+            }
+            if (alarm2Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFF90EE90).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFF90EE90).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[8]
+                ))
+            }
+            if (alarm3Graph.isNotEmpty()) {
+                lineColors.add(LineCartesianLayer.Line(LineCartesianLayer.LineFill.single(Fill(Color(0xFFFFA500).toArgb()))))
+                legendItems.add(LegendItem(
+                    icon = LineComponent(fill = Fill(Color(0xFFFFA500).toArgb())),
+                    labelComponent = TextComponent(color = MaterialTheme.colorScheme.tertiary.toArgb(), textSizeSp = 16f),
+                    label = btUiState.legendNames[9]
+                ))
+            }
 
             CartesianChartHost(
                 rememberCartesianChart(
@@ -938,6 +1125,10 @@ fun AlarmItem(
         val valor = inputValue.toDoubleOrNull() ?: 0.0
         onAlarmaChange(selectedMag, selectedOperador, valor)
         unidad = if (selectedMag == "Corriente") "A" else "°C"
+    }
+
+    LaunchedEffect(Unit) {
+        callOnChange()
     }
 
     Column(

@@ -18,13 +18,13 @@ class UserPreferencesRepository(
         val BLUETOOTH_DEVICE_CONFIG = stringPreferencesKey("bluetooth_device_config")
     }
 
-    suspend fun saveBluetoothConfig(bluetoothDeviceConfig: String) {
+    suspend fun saveConfig(bluetoothDeviceConfig: String) {
         dataStore.edit { preferences ->
             preferences[BLUETOOTH_DEVICE_CONFIG] = bluetoothDeviceConfig
         }
     }
 
-    val bluetoothDeviceConfig: Flow<String> = dataStore.data
+    val deviceConfig: Flow<String> = dataStore.data
         .catch {
             if(it is IOException) {
                 Log.e("UserPreferencesRepo", "Error reading preferences.", it)
