@@ -31,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -49,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -63,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.refrimed.R
 import com.example.refrimed.data.AlarmData
 import com.example.refrimed.data.BtUiState
 import com.example.refrimed.data.ConnectionState
@@ -122,18 +125,37 @@ fun BluetoothScreen(
         }
     }
 
-    Text(
-        text = if (connectedSocket != null) {
-            "Conectado a ${getDeviceNameSafe(connectedSocket.remoteDevice, context)}"
-        } else if (btUiState.connectionState == ConnectionState.CONNECTING) {
-            "Conectando..."
-        } else {
-            "Sin conexión"
-        },
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Medium,
-        modifier = Modifier.padding(8.dp)
-    )
+    Row (
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        Text(
+            text = if (connectedSocket != null) {
+                "Conectado a ${getDeviceNameSafe(connectedSocket.remoteDevice, context)}"
+            } else if (btUiState.connectionState == ConnectionState.CONNECTING) {
+                "Conectando..."
+            } else {
+                "Sin conexión"
+            },
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(8.dp)
+        )
+        if (connectedSocket != null && btUiState.wifiQuery != ConnectionState.IDLE) {
+            if (btUiState.wifiQuery == ConnectionState.OFFLINE) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_wifi_off),
+                    contentDescription = "Wifi desconectado"
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_wifi_on),
+                    contentDescription = "Wifi conectado"
+                )
+            }
+        }
+    }
 
     if (connectedSocket != null) btViewModel.setConnectionState(ConnectionState.ONLINE)
 
@@ -212,7 +234,7 @@ fun BluetoothScreen(
                     if (btUiState.actualDateTime == Date(1)) {
                         append("---")
                     } else if (btUiState.actualDateTime == Date(0)) {
-                        append("Sin conexión WiFi")
+                        append("Conectar WiFi o setear hora -> sin registro.")
                     } else {
                         val horaActual = SimpleDateFormat("HH:mm:ss").format(btUiState.actualDateTime)
                         append("$horaActual hs")
@@ -586,6 +608,11 @@ fun BluetoothConfigScreen(
                 Text(wifiConnectionState, style = TextStyle(fontStyle = FontStyle.Italic))
             }
 
+            FechaYHoraSelector(btUiState.wifiQuery == ConnectionState.ONLINE) {
+                time -> btViewModel.sendLocalDateTime(time)
+            }
+
+
             HorizontalDivider(color = Color.Gray, thickness = 4.dp)
 
             Text(
@@ -651,6 +678,12 @@ fun BluetoothConfigScreen(
                 Toast.makeText(LocalContext.current, "WiFi conexión exitosa.", Toast.LENGTH_LONG)
                     .show()
                 btViewModel.setWifiState(ConnectionState.ONLINE)
+            }
+
+            if (btUiState.localDateTimeQueryState == QueryState.DATETIME_RECEIVED) {
+                Toast.makeText(LocalContext.current, "Fecha y hora seteadas correctamente.", Toast.LENGTH_LONG)
+                    .show()
+                btViewModel.setLocalDateTimeState(QueryState.IDLE)
             }
         }
     }
@@ -840,7 +873,7 @@ fun GraficoScreen(
             modifier = Modifier
                 .background(MaterialTheme.colorScheme.tertiary)
         ) {
-            Text("Leer últimas 3hs")
+            Text("Leer últimas 360 med.")
         }
 
     }

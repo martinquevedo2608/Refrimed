@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import com.example.refrimed.data.UserPreferencesRepository
+import java.time.LocalDateTime
 
 class BluetoothViewModel(
     savedStateHandle: SavedStateHandle,
@@ -74,7 +75,6 @@ class BluetoothViewModel(
     // Función para actualizar el uiState de forma segura
     fun updateBtState(transform: (BtUiState) -> BtUiState) {
         _btState.update(transform)
-        Log.d("GraficLog", "${_btState.value.graph.size}")
     }
 
     fun setConnectionState(connectionState: ConnectionState) {
@@ -188,6 +188,36 @@ class BluetoothViewModel(
         _btState.update { it.copy(wifiQuery = connectionState) }
     }
 
+    fun getRegFrecuencia(): Int {
+        return when (_btState.value.frecuenciaRegistro) {
+            "15 segundos" -> 15 * 1000
+            "30 segundos" -> 30 * 1000
+            "1 minuto" -> 60 * 1000
+            "3 minutos" -> 3 * 60 * 1000
+            "5 minutos" -> 5 * 60 * 1000
+            "10 minutos" -> 10 * 60 * 1000
+            "30 minutos" -> 30 * 60 * 1000
+            "1 hora" -> 60 * 60 * 1000
+            else -> 0
+        }
+    }
+
+    fun setLocalDateTime(localDateTime: LocalDateTime) {
+        _btState.update { it.copy(localDateTime = localDateTime) }
+    }
+
+    fun sendLocalDateTime(localDateTime: Long) {
+        _btState.update { it.copy(localDateTimeQueryState = QueryState.DATETIME_SENT) }
+        sendMessage("set_time:${localDateTime}")
+    }
+
+    fun getLocalDateTimeState(): QueryState {
+        return _btState.value.localDateTimeQueryState
+    }
+
+    fun setLocalDateTimeState(queryState: QueryState) {
+        _btState.update { it.copy(localDateTimeQueryState = queryState) }
+    }
 
 }
 

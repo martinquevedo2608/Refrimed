@@ -42,6 +42,7 @@ class BluetoothHelper(
 
     private var badCount = 0
     private var recordList = mutableListOf<Values>()
+    private var regCount = 0L + 1000 * 60 * 60 * 3
 
     fun isBluetoothAvailable(): Boolean = bluetoothAdapter != null
     fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
@@ -228,29 +229,44 @@ class BluetoothHelper(
             } catch (e: Exception) { Log.e(TAG, "Error al parsear el mensaje THRESHOLDS: ${e.message}, mensaje: $message") }
         } else if (parts.size == 12 && parts[0] in listOf("RSTART", "RE", "RFINISH")) { //recibo Registros del equipo
             if (parts[0] == "RSTART") {
-                badCount = 0;
+                badCount = 0
                 recordList = mutableListOf()
+                regCount = 0L + 1000 * 60 * 60 * 3
             } else if (parts[0] == "RE") {
                 val timestampString = parts[1].trim()
                 val dateTimeFormat = SimpleDateFormat("dd/MM/yy - HH:mm:ss", Locale.getDefault())
                 try {
                     val parsedTimestamp = dateTimeFormat.parse(timestampString)
+                    var temp1 = parts[2].trim().toDoubleOrNull() ?: 0.0
+                    if (temp1 < -50) temp1 = 0.0
+                    var temp2 = parts[3].trim().toDoubleOrNull() ?: 0.0
+                    if (temp2 < -50) temp2 = 0.0
+                    var temp3 = parts[4].trim().toDoubleOrNull() ?: 0.0
+                    if (temp3 < -50) temp3 = 0.0
+                    var temp4 = parts[5].trim().toDoubleOrNull() ?: 0.0
+                    if (temp4 < -50) temp4 = 0.0
+                    val current = parts[6].trim().toDoubleOrNull() ?: 0.0
 
-                    recordList.add(
-                        Values (
-                            timestamp = parsedTimestamp ?: Date(), // Usa la fecha parseada o la actual si falla
-                            temp1 = parts[2].trim().toDoubleOrNull() ?: 0.0,
-                            temp2 = parts[3].trim().toDoubleOrNull() ?: 0.0,
-                            temp3 = parts[4].trim().toDoubleOrNull() ?: 0.0,
-                            temp4 = parts[5].trim().toDoubleOrNull() ?: 0.0,
-                            current = parts[6].trim().toDoubleOrNull() ?: 0.0,
-                            relay1 = parts[7].trim() == "1",
-                            relay2 = parts[8].trim() == "1",
-                            alarm1 = parts[9].trim() == "1",
-                            alarm2 = parts[10].trim() == "1",
-                            alarm3 = parts[11].trim() == "1"
+                    if (temp1 in -40.0..50.0 && temp2 in -40.0..50.0 && temp3 in -40.0..50.0 && temp4 in -40.0..50.0 && current in 0.0..10.0) {
+                        recordList.add(
+                            Values(
+                                id = regCount,
+                                timestamp = parsedTimestamp
+                                    ?: Date(), // Usa la fecha parseada o la actual si falla
+                                temp1 = temp1,
+                                temp2 = temp2,
+                                temp3 = temp3,
+                                temp4 = temp4,
+                                current = parts[6].trim().toDoubleOrNull() ?: 0.0,
+                                relay1 = parts[7].trim() == "1",
+                                relay2 = parts[8].trim() == "1",
+                                alarm1 = parts[9].trim() == "1",
+                                alarm2 = parts[10].trim() == "1",
+                                alarm3 = parts[11].trim() == "1"
+                            )
                         )
-                    )
+                        regCount += btViewModel.getRegFrecuencia()
+                    }
 
                     try { btViewModel.thresholdsDeferred.complete(true) } catch (_: Exception) { }
                 } catch (e: Exception) { Log.e( TAG, "Error al parsear el mensaje RECORD: ${e.message}, mensaje: $message" ); badCount++ }
@@ -303,6 +319,10 @@ class BluetoothHelper(
         } else if (parts.size == 1 && parts[0] == "wifi_ok") {
             if (btViewModel.getWifiState() in listOf(ConnectionState.CONNECTING, ConnectionState.OFFLINE)) {
                 btViewModel.updateBtState { it.copy(wifiQuery = ConnectionState.CONNECTED) }
+            }
+        } else if (parts.size == 1 && parts[0] == "time_ok") {
+            if (btViewModel.getLocalDateTimeState() == QueryState.DATETIME_SENT) {
+                btViewModel.updateBtState { it.copy(localDateTimeQueryState = QueryState.DATETIME_RECEIVED) }
             }
         } else {
             Log.w(TAG, "Mensaje con formato incorrecto: $message")

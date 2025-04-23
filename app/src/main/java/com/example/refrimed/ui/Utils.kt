@@ -1,5 +1,7 @@
 package com.example.refrimed.ui
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.bluetooth.BluetoothDevice
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -37,6 +41,13 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.refrimed.data.BtUiState
+import com.example.refrimed.data.ConnectionState
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.ZoneId
+import java.util.Calendar
 
 @Composable
 fun CardItem(
@@ -192,4 +203,72 @@ fun DropdownSelector(
             }
         }
     }
+}
+
+@Composable
+fun FechaYHoraSelector(
+    isWifiConnected: Boolean,
+    onDateTimeSelected: (Long) -> Unit
+) {
+    val context = LocalContext.current
+    val calendario = Calendar.getInstance()
+
+    // Estados para guardar fecha y hora seleccionadas
+    var fechaSeleccionada by remember { mutableStateOf<LocalDate?>(null) }
+    var horaSeleccionada by remember { mutableStateOf<LocalTime?>(null) }
+
+    // Estado para mostrar los diálogos
+    var mostrarDatePicker by remember { mutableStateOf(false) }
+    var mostrarTimePicker by remember { mutableStateOf(false) }
+
+    // Lógica para mostrar los diálogos
+    if (mostrarDatePicker) {
+        DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                fechaSeleccionada = LocalDate.of(year, month + 1, dayOfMonth)
+                mostrarDatePicker = false
+                mostrarTimePicker = true
+            },
+            calendario.get(Calendar.YEAR),
+            calendario.get(Calendar.MONTH),
+            calendario.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    if (mostrarTimePicker) {
+        TimePickerDialog(
+            context,
+            { _, hour, minute ->
+                horaSeleccionada = LocalTime.of(hour, minute)
+                mostrarTimePicker = false
+                // Si ya hay fecha, combinamos
+                if (fechaSeleccionada != null) {
+                    val dateTime = LocalDateTime.of(fechaSeleccionada, horaSeleccionada)
+                    onDateTimeSelected(localDateTimeToTimeT(dateTime))
+                }
+            },
+            calendario.get(Calendar.HOUR_OF_DAY),
+            calendario.get(Calendar.MINUTE),
+            true
+        ).show()
+    }
+
+    Button(shape = MaterialTheme.shapes.small,
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+        modifier = Modifier
+            .padding(horizontal = 16.dp).padding(top = 16.dp),
+        enabled = !isWifiConnected,
+        onClick = { mostrarDatePicker = true }
+    ) {
+        Text("Seleccionar fecha y hora")
+    }
+
+    if (fechaSeleccionada != null && horaSeleccionada != null) {
+        Text("Seteado: ${fechaSeleccionada} ${horaSeleccionada}", modifier = Modifier.padding(horizontal = 16.dp))
+    }
+}
+
+fun localDateTimeToTimeT(dateTime: LocalDateTime): Long {
+    return dateTime.atZone(ZoneId.of("UTC")).toEpochSecond()
 }

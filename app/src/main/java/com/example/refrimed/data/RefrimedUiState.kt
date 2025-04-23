@@ -24,7 +24,9 @@ enum class QueryState {
     THRESHOLDS_SENT,
     THRESHOLDS_OK,
     RECORD_ASKED,
-    RECORD_RECEIVED
+    RECORD_RECEIVED,
+    DATETIME_SENT,
+    DATETIME_RECEIVED
 }
 
 enum class Screen {

@@ -1,5 +1,7 @@
 package com.example.refrimed.data
 
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.util.Date
 
 data class BtUiState(
@@ -48,8 +50,10 @@ data class BtUiState(
     val recordReceived: Boolean = false,
     val recordQuery: QueryState = QueryState.IDLE,
     val recordSent: Boolean = false,
-    val wifiQuery: ConnectionState = ConnectionState.OFFLINE,
-    val frecuenciaRegistro: String = "1 minuto"
+    val wifiQuery: ConnectionState = ConnectionState.IDLE,
+    val frecuenciaRegistro: String = "1 minuto",
+    val localDateTime: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0),
+    val localDateTimeQueryState: QueryState = QueryState.IDLE
 )
 
 enum class ConnectionState {
@@ -58,5 +62,6 @@ enum class ConnectionState {
     CONNECTING,
     ERROR,
     ERROR_PASS,
-    CONNECTED
+    CONNECTED,
+    IDLE
 }
