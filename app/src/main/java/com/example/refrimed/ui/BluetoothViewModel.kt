@@ -219,6 +219,24 @@ class BluetoothViewModel(
         _btState.update { it.copy(localDateTimeQueryState = queryState) }
     }
 
+    fun checkUpdates() {
+        _btState.update { it.copy(updateQueryState = QueryState.UPDATE_CHECKING) }
+        sendMessage("firmware_check_updates")
+    }
+
+    fun update() {
+        _btState.update { it.copy(updateQueryState = QueryState.UPDATE_UPDATING) }
+        sendMessage("firmware_update")
+    }
+
+    fun getUpdateState(): QueryState {
+        return _btState.value.updateQueryState
+    }
+
+    fun setUpdateState(queryState: QueryState) {
+        _btState.update { it.copy(updateQueryState = queryState) }
+    }
+
 }
 
 fun List<String>.toCsv(): String = joinToString(",")

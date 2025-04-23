@@ -324,6 +324,26 @@ class BluetoothHelper(
             if (btViewModel.getLocalDateTimeState() == QueryState.DATETIME_SENT) {
                 btViewModel.updateBtState { it.copy(localDateTimeQueryState = QueryState.DATETIME_RECEIVED) }
             }
+        } else if (parts.size == 2 && parts[0] == "firmware_uptodate") {
+            if (btViewModel.getUpdateState() == QueryState.UPDATE_CHECKING) {
+                btViewModel.updateBtState { it.copy(updateQueryState = QueryState.UPDATE_UP_TO_DATE, updateActualVersion = parts[1]) }
+            }
+        } else if (parts.size == 3 && parts[0] == "firmware_new_available") {
+            if (btViewModel.getUpdateState() == QueryState.UPDATE_CHECKING) {
+                btViewModel.updateBtState { it.copy(updateQueryState = QueryState.UPDATE_AVAILABLE, updateActualVersion = parts[1], updateNewVersion = parts[2]) }
+            }
+        } else if (parts.size == 1 && parts[0] == "firmware_error") {
+            if (btViewModel.getUpdateState() == QueryState.UPDATE_CHECKING) {
+                btViewModel.updateBtState { it.copy(updateQueryState = QueryState.UPDATE_ERROR_CHECK) }
+            }
+        } else if (parts.size == 1 && parts[0] == "update_error") {
+            if (btViewModel.getUpdateState() == QueryState.UPDATE_UPDATING) {
+                btViewModel.updateBtState { it.copy(updateQueryState = QueryState.UPDATE_ERROR) }
+            }
+        } else if (parts.size == 1 && parts[0] == "update_ok") {
+            if (btViewModel.getUpdateState() == QueryState.UPDATE_UPDATING) {
+                btViewModel.updateBtState { it.copy(updateQueryState = QueryState.UPDATE_OK) }
+            }
         } else {
             Log.w(TAG, "Mensaje con formato incorrecto: $message")
         }

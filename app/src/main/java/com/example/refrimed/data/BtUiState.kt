@@ -53,7 +53,10 @@ data class BtUiState(
     val wifiQuery: ConnectionState = ConnectionState.IDLE,
     val frecuenciaRegistro: String = "1 minuto",
     val localDateTime: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0),
-    val localDateTimeQueryState: QueryState = QueryState.IDLE
+    val localDateTimeQueryState: QueryState = QueryState.IDLE,
+    val updateQueryState: QueryState = QueryState.IDLE,
+    val updateActualVersion: String = "",
+    val updateNewVersion: String = ""
 )
 
 enum class ConnectionState {

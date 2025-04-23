@@ -446,12 +446,13 @@ fun BluetoothConfigScreen(
     btUiState: BtUiState,
 ) {
     val config = remember { mutableStateListOf(btUiState.red, btUiState.pass, btUiState.temperatures, btUiState.currents, btUiState.relays, btUiState.alarms, btUiState.frecuenciaRegistro) }
+    val scrollState = rememberScrollState()
 
     key (btUiState.configQuery) {
         Column(
             modifier = Modifier
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
         ) {
             Text(
                 "Parámetros básicos:",
@@ -613,7 +614,7 @@ fun BluetoothConfigScreen(
             }
 
 
-            HorizontalDivider(color = Color.Gray, thickness = 4.dp)
+            HorizontalDivider(color = Color.Gray, thickness = 4.dp, modifier = Modifier.padding(top = 8.dp))
 
             Text(
                 "Registro y gráfico:",
@@ -621,6 +622,79 @@ fun BluetoothConfigScreen(
             )
 
             BotonBorrado(btViewModel)
+
+            HorizontalDivider(color = Color.Gray, thickness = 4.dp, modifier = Modifier.padding(top = 8.dp))
+
+            Text(
+                "Versión y actualización de firmware:",
+                modifier = Modifier.padding(8.dp)
+            )
+
+            Row (
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Button(
+                    onClick = { btViewModel.checkUpdates() },
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                    enabled = btUiState.wifiQuery == ConnectionState.ONLINE,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Chequear actualizaciones")
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Button(
+                    onClick = { btViewModel.update() },
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                    enabled = btUiState.updateQueryState == QueryState.UPDATE_AVAILABLE || btUiState.updateQueryState == QueryState.UPDATE_ERROR,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (btUiState.updateQueryState == QueryState.UPDATE_UPDATING) {
+                        CircularProgressIndicator()
+                    } else {
+                        Text("Actualizar")
+                    }
+                }
+            }
+
+            when (btUiState.updateQueryState) {
+                QueryState.UPDATE_UP_TO_DATE -> {
+                    Text("Versión actual: ${btUiState.updateActualVersion}")
+                    Text("Estado: Actualizado")
+                    LaunchedEffect(btUiState.updateQueryState) { scrollState.animateScrollTo(scrollState.maxValue) }
+                }
+                QueryState.UPDATE_AVAILABLE -> {
+                    Text("Versión actual: ${btUiState.updateActualVersion}")
+                    Text("Estado: Versión ${btUiState.updateNewVersion} disponible")
+                    LaunchedEffect(btUiState.updateQueryState) { scrollState.animateScrollTo(scrollState.maxValue) }
+                }
+                QueryState.UPDATE_UPDATING -> {
+                    Text("Descargando y actualizando")
+                    LaunchedEffect(btUiState.updateQueryState) { scrollState.animateScrollTo(scrollState.maxValue) }
+                }
+                QueryState.UPDATE_OK -> {
+                    Text("Actualización realizada con éxito")
+                    Text("Versión actual: ${btUiState.updateActualVersion}")
+                    LaunchedEffect(btUiState.updateQueryState) { scrollState.animateScrollTo(scrollState.maxValue) }
+                }
+                QueryState.UPDATE_ERROR -> {
+                    Text("Error al realizar la actualización")
+                    LaunchedEffect(btUiState.updateQueryState) { scrollState.animateScrollTo(scrollState.maxValue) }
+                }
+                QueryState.UPDATE_ERROR_CHECK -> {
+                    Toast.makeText(LocalContext.current, "Error en el chequeo de actualizaciones", Toast.LENGTH_LONG).show()
+                    btViewModel.setUpdateState(QueryState.IDLE)
+                    LaunchedEffect(btUiState.updateQueryState) { scrollState.animateScrollTo(scrollState.maxValue) }
+                }
+                else -> { }
+            }
 
             if (btUiState.configQuery == QueryState.ERROR) {
                 Toast.makeText(
